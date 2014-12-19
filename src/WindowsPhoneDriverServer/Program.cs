@@ -92,7 +92,13 @@ namespace WindowsPhoneDriverServer
                 }
                 else
                 {
-                    httpServer = new RemoteServer(commandLineOptions.Port, commandLineOptions.UrlPath, commandLineOptions.DeviceName, commandLineOptions.DeviceControllerKind, logger);
+                    if (string.IsNullOrEmpty(commandLineOptions.XapPath))
+                    {
+                        httpServer = new RemoteServer(commandLineOptions.Port, commandLineOptions.UrlPath, commandLineOptions.DeviceName, commandLineOptions.DeviceControllerKind, logger);
+                    }
+                    else {
+                        httpServer = new RemoteServer(commandLineOptions.Port, commandLineOptions.UrlPath, commandLineOptions.DeviceName, commandLineOptions.DeviceControllerKind, commandLineOptions.XapPath, logger);
+                    }
                 }
 
                 httpServer.ShutdownRequested += new EventHandler(OnRemoteServerShutdownRequested);
@@ -133,6 +139,7 @@ namespace WindowsPhoneDriverServer
             Console.WriteLine("WindowsPhoneDriverServer.exe [/port=<port>] [/urlpath=<url path>]");
             Console.WriteLine("                             [/username=<user name>] [/password=<password>]");
             Console.WriteLine("                             [/devicename=<device name> [/usedevice]]");
+            Console.WriteLine("                             [/xappath=<xap path>]");
             Console.WriteLine("                             [/loglevel=<level>");
             Console.WriteLine("  /port=<port>  Specifies the port on which the server will listen for");
             Console.WriteLine("                commands. Defaults to 7332 if not specified.");
@@ -152,6 +159,9 @@ namespace WindowsPhoneDriverServer
             Console.WriteLine("                the driver.");
             Console.WriteLine("  /usedevice    Specifies that the device named with the devicename switch");
             Console.WriteLine("                is a physical device, not an emulated one.");
+            Console.WriteLine("  /xappath=<xap path>");
+            Console.WriteLine("                Specifies the full path of the desired application's xap file.");
+            Console.WriteLine("                If this isn't specified, launches the driver browser by default.");
         }
 
         private static void RegisterWithHub(string hubLocation)

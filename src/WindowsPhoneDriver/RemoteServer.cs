@@ -101,6 +101,21 @@ namespace WindowsPhoneDriver
         }
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="RemoteServer"/> class using the specified port, relative path, 
+        /// device name, device type, and logger.
+        /// </summary>
+        /// <param name="port">The port to listen on.</param>
+        /// <param name="path">The relative path to connect to.</param>
+        /// <param name="deviceName">The name of the device to which to bind the controller.</param>
+        /// <param name="kind">The <see cref="ControllerKind"/> value describing the kind of controller to create.</param>
+        /// <param name="xapPath">The path to desired application installation file</param>
+        /// <param name="log">A <see cref="Logger"/> object describing how to log information about commands executed.</param>
+        public RemoteServer(int port, string path, string deviceName, ControllerKind kind, string xapPath, Logger log)
+            : this(port, path, new WindowsPhoneCommandExecutor(kind, deviceName, xapPath), log)
+        {
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="RemoteServer"/> class using the specified port and relative path.
         /// </summary>
         /// <param name="port">The port to listen on.</param>

@@ -62,6 +62,8 @@ namespace WindowsPhoneDriver
         private ControllerKind kind = ControllerKind.Emulator;
         private string deviceName = "Emulator 8.1 WVGA 4 inch";
         private string address = string.Empty;
+        private string xapPath = string.Empty;
+        private string assemblyDirectory = string.Empty;
         private string port = string.Empty;
         private int displayScale = 100;
         private bool hasSession;
@@ -96,6 +98,20 @@ namespace WindowsPhoneDriver
         {
             this.kind = kind;
             this.deviceName = deviceName;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DeviceController"/> class connecting to the
+        /// specified kind of device with the specified name.
+        /// </summary>
+        /// <param name="kind">The <see cref="ControllerKind"/> of the controller.</param>
+        /// <param name="deviceName">The name of the device to connect to.</param>
+        /// <param name="xapPath">The path to desired application installation file</param>
+        public DeviceController(ControllerKind kind, string deviceName, string xapPath)
+        {
+            this.kind = kind;
+            this.deviceName = deviceName;
+            this.xapPath = xapPath;
         }
 
         /// <summary>
@@ -156,9 +172,20 @@ namespace WindowsPhoneDriver
             else
             {
                 this.SendStatusUpdate("Connecting to device {0}.", device.Name);
-                string assemblyDirectory = Path.GetDirectoryName(this.GetType().Assembly.Location);
-                string xapPath = GetPackagePath(assemblyDirectory);
-                ApplicationArchiveInfo appInfo = ApplicationArchiveInfo.ReadApplicationInfo(xapPath);
+
+                List<string> fileNames = new List<string>();
+                if (!this.xapPath.Equals(string.Empty))
+                {
+                    this.assemblyDirectory = Path.GetDirectoryName(this.xapPath);
+                    fileNames.Add(Path.GetFileName(this.xapPath));
+                }
+                else
+                {
+                    this.assemblyDirectory = Path.GetDirectoryName(this.GetType().Assembly.Location);
+                    fileNames.Add("WindowsPhoneDriverBrowser.xap");
+                }
+                string path = GetPackagePath(this.assemblyDirectory, fileNames);
+                ApplicationArchiveInfo appInfo = ApplicationArchiveInfo.ReadApplicationInfo(path);
                 Guid applicationId = appInfo.ApplicationId.Value;
                 string iconPath = appInfo.ExtractIconFile();
 
@@ -183,13 +210,15 @@ namespace WindowsPhoneDriver
                 {
                     if (!device.IsApplicationInstalled(applicationId))
                     {
-                        this.SendStatusUpdate("Installing application {0}.", xapPath);
-                        this.browserApplication = device.InstallApplication(applicationId, applicationId, "WindowsPhoneDriverBrowser", iconPath, xapPath);
+                        this.SendStatusUpdate("Installing application {0}.", path);
+                        this.browserApplication = device.InstallApplication(applicationId, applicationId, "WindowsPhoneDriverBrowser", iconPath, path);
                     }
                     else
                     {
-                        this.SendStatusUpdate("Application already installed.");
-                        this.browserApplication = device.GetApplication(applicationId);
+                        this.SendStatusUpdate("Application already installed. Uninstalling..");
+                        device.GetApplication(applicationId).Uninstall();
+                        this.SendStatusUpdate("Reinstalling application {0}.", path);
+                        this.browserApplication = device.InstallApplication(applicationId, applicationId, "WindowsPhoneDriverBrowser", iconPath, path);
                     }
                 }
 
@@ -262,9 +291,8 @@ namespace WindowsPhoneDriver
             }
         }
 
-        private static string GetPackagePath(string directory)
+        private static string GetPackagePath(string directory, List<string> fileNames)
         {
-            List<string> fileNames = new List<string>() { "WindowsPhoneDriverBrowser.xap" };
             foreach (string fileName in fileNames)
             {
                 string fullCandidatePath = Path.Combine(directory, fileName);

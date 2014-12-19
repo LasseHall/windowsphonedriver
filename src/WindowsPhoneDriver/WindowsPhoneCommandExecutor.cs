@@ -66,6 +66,19 @@ namespace WindowsPhoneDriver
         }
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="WindowsPhoneCommandExecutor"/> class
+        /// for the given kind of controller and device name.
+        /// </summary>
+        /// <param name="controllerKind">The <see cref="ControllerKind"/> value representing
+        /// the kind of controller to create.</param>
+        /// <param name="deviceName">The device name for which to search when connecting.</param>
+        /// <param name="xapPath">The path to desired application installation file</param>
+        public WindowsPhoneCommandExecutor(ControllerKind controllerKind, string deviceName, string xapPath)
+        {
+            this.controller = new DeviceController(controllerKind, deviceName, xapPath);
+        }
+
+        /// <summary>
         /// Starts the command executor.
         /// </summary>
         /// <param name="logProvider"><see cref="Logger"/> object providing logging capabilities to the executor.</param>

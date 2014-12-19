@@ -50,6 +50,7 @@ namespace WindowsPhoneDriverServer
         private const string LogLevelCommandLineOption = "LOGLEVEL";
         private const string HubCommandLineOption = "HUB";
         private const string UrlPathCommandLineOption = "URLPATH";
+        private const string XapPathCommandLineOption = "XAPPATH";
         private const string UseDeviceCommandLineOption = "USEDEVICE";
         private const string DeviceNameCommandLineOption = "DEVICENAME";
         private const string VersionCommandLineOption = "VERSION";
@@ -65,6 +66,7 @@ namespace WindowsPhoneDriverServer
         private string serverVersion = string.Empty;
         private string hubLocation = string.Empty;
         private string urlPath = string.Empty;
+        private string xapPath = string.Empty;
         private string deviceName = string.Empty;
         private ControllerKind controllerKind = ControllerKind.Emulator;
         private bool reserveUrl;
@@ -103,6 +105,14 @@ namespace WindowsPhoneDriverServer
         internal string UrlPath
         {
             get { return this.urlPath; }
+        }
+
+        /// <summary>
+        /// Gets the relative path to the installation package of the desired application.
+        /// </summary>
+        internal string XapPath
+        {
+            get { return this.xapPath; }
         }
 
         /// <summary>
@@ -257,6 +267,10 @@ namespace WindowsPhoneDriverServer
 
                 case UrlPathCommandLineOption:
                     this.urlPath = value;
+                    break;
+
+                case XapPathCommandLineOption:
+                    this.xapPath = value;
                     break;
 
                 case LogLevelCommandLineOption:

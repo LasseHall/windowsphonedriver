@@ -72,10 +72,10 @@ namespace WindowsPhoneDriver
         /// <param name="controllerKind">The <see cref="ControllerKind"/> value representing
         /// the kind of controller to create.</param>
         /// <param name="deviceName">The device name for which to search when connecting.</param>
-        /// <param name="xapPath">The path to desired application installation file</param>
-        public WindowsPhoneCommandExecutor(ControllerKind controllerKind, string deviceName, string xapPath)
+        /// <param name="appPath">The path to desired application installation file</param>
+        public WindowsPhoneCommandExecutor(ControllerKind controllerKind, string deviceName, string appPath)
         {
-            this.controller = new DeviceController(controllerKind, deviceName, xapPath);
+            this.controller = new DeviceController(controllerKind, deviceName, appPath);
         }
 
         /// <summary>

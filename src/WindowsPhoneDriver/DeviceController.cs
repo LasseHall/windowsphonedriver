@@ -34,7 +34,11 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Xml.XPath;
+using Microsoft.Phone.Tools.Common;
+using Microsoft.Phone.Tools.Deploy;
 using Microsoft.SmartDevice.Connectivity;
+using Microsoft.SmartDevice.Connectivity.Interface;
+using Microsoft.SmartDevice.MultiTargeting.Connectivity;
 
 namespace WindowsPhoneDriver
 {
@@ -62,7 +66,7 @@ namespace WindowsPhoneDriver
         private ControllerKind kind = ControllerKind.Emulator;
         private string deviceName = "Emulator 8.1 WVGA 4 inch";
         private string address = string.Empty;
-        private string xapPath = string.Empty;
+        private string appPath = string.Empty;
         private string assemblyDirectory = string.Empty;
         private string port = string.Empty;
         private int displayScale = 100;
@@ -106,12 +110,12 @@ namespace WindowsPhoneDriver
         /// </summary>
         /// <param name="kind">The <see cref="ControllerKind"/> of the controller.</param>
         /// <param name="deviceName">The name of the device to connect to.</param>
-        /// <param name="xapPath">The path to desired application installation file</param>
-        public DeviceController(ControllerKind kind, string deviceName, string xapPath)
+        /// <param name="appPath">The path to desired application installation file</param>
+        public DeviceController(ControllerKind kind, string deviceName, string appPath)
         {
             this.kind = kind;
             this.deviceName = deviceName;
-            this.xapPath = xapPath;
+            this.appPath = appPath;
         }
 
         /// <summary>
@@ -174,10 +178,10 @@ namespace WindowsPhoneDriver
                 this.SendStatusUpdate("Connecting to device {0}.", device.Name);
 
                 List<string> fileNames = new List<string>();
-                if (!this.xapPath.Equals(string.Empty))
+                if (!this.appPath.Equals(string.Empty))
                 {
-                    this.assemblyDirectory = Path.GetDirectoryName(this.xapPath);
-                    fileNames.Add(Path.GetFileName(this.xapPath));
+                    this.assemblyDirectory = Path.GetDirectoryName(this.appPath);
+                    fileNames.Add(Path.GetFileName(this.appPath));
                 }
                 else
                 {
@@ -185,7 +189,10 @@ namespace WindowsPhoneDriver
                     fileNames.Add("WindowsPhoneDriverBrowser.xap");
                 }
                 string path = GetPackagePath(this.assemblyDirectory, fileNames);
+
+                this.SendStatusUpdate("path: " + path);
                 ApplicationArchiveInfo appInfo = ApplicationArchiveInfo.ReadApplicationInfo(path);
+
                 Guid applicationId = appInfo.ApplicationId.Value;
                 string iconPath = appInfo.ExtractIconFile();
 
@@ -208,17 +215,29 @@ namespace WindowsPhoneDriver
                 }
                 else
                 {
-                    if (!device.IsApplicationInstalled(applicationId))
+                    if (path.EndsWith("xap"))
                     {
+                        if (device.IsApplicationInstalled(applicationId))
+                        {
+                            this.SendStatusUpdate("Application already installed. Uninstalling..");
+                            device.GetApplication(applicationId).Uninstall();
+                        }
                         this.SendStatusUpdate("Installing application {0}.", path);
                         this.browserApplication = device.InstallApplication(applicationId, applicationId, "WindowsPhoneDriverBrowser", iconPath, path);
                     }
                     else
                     {
-                        this.SendStatusUpdate("Application already installed. Uninstalling..");
-                        device.GetApplication(applicationId).Uninstall();
-                        this.SendStatusUpdate("Reinstalling application {0}.", path);
-                        this.browserApplication = device.InstallApplication(applicationId, applicationId, "WindowsPhoneDriverBrowser", iconPath, path);
+                        if (device.IsApplicationInstalled(applicationId))
+                        {
+                            this.SendStatusUpdate("Application already installed. Uninstalling..");
+                            device.GetApplication(applicationId).Uninstall();
+                        }
+                        this.SendStatusUpdate("Installing application {0}.", path);
+                        IAppManifestInfo manifestInfo = Utils.ReadAppManifestInfoFromPackage(this.appPath);
+                        DeploymentOptions deploymentOptions = DeploymentOptions.None;
+                        var devices = Utils.GetDevices();
+                        var utilDevice = devices.FirstOrDefault(d => d.ToString() == "Device");
+                        Utils.InstallApplication(utilDevice, manifestInfo, deploymentOptions, this.appPath);
                     }
                 }
 

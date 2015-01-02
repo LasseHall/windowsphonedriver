@@ -32,6 +32,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.XPath;
+using System.Xml;
 
 namespace WindowsPhoneDriver
 {
@@ -81,6 +82,8 @@ namespace WindowsPhoneDriver
             private set;
         }
 
+        private string iconPath = string.Empty;
+
         /// <summary>
         /// Reads the application info.
         /// </summary>
@@ -89,6 +92,7 @@ namespace WindowsPhoneDriver
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope", Justification = "System.IO.Compression.ZipArchive automatically closes/disposes the underlying System.IO.FileStream.")]
         public static ApplicationArchiveInfo ReadApplicationInfo(string appArchiveFilePath)
         {
+            string log = string.Empty;
             ApplicationArchiveInfo appInfo = new ApplicationArchiveInfo(appArchiveFilePath);
             try
             {
@@ -97,27 +101,67 @@ namespace WindowsPhoneDriver
                 FileStream appArchiveFileStream = new FileStream(appArchiveFilePath, FileMode.Open, FileAccess.Read);
                 using (ZipArchive zipArchive = new ZipArchive(appArchiveFileStream, ZipArchiveMode.Read))
                 {
-                    ZipArchiveEntry appManifestEntry = zipArchive.GetEntry("WMAppManifest.xml");
-                    using (Stream appManifestFileStream = appManifestEntry.Open())
-                    {
-                        XPathDocument manifestDocument = new XPathDocument(appManifestFileStream);
-                        XPathNavigator manifestNavigator = manifestDocument.CreateNavigator();
-                        XPathNavigator appNodeNavigator = manifestNavigator.SelectSingleNode("//App");
-                        appInfo.ApplicationId = new Guid?(new Guid(appNodeNavigator.GetAttribute("ProductID", string.Empty)));
-                        string attribute = appNodeNavigator.GetAttribute("RuntimeType", string.Empty);
-                        if (attribute.Equals("Modern Native", StringComparison.OrdinalIgnoreCase))
-                        {
-                            appInfo.IsNative = true;
-                        }
+                    ZipArchiveEntry appManifestEntry;
 
-                        manifestNavigator.MoveToFirstChild();
-                        appInfo.ManifestVersion = new Version(manifestNavigator.GetAttribute("AppPlatformVersion", string.Empty));
+                    // Xap and Appx packages use different types of Appmanifest files
+                    // Extract information from the files accordingly
+                    if (appArchiveFilePath.EndsWith("xap"))
+                    {
+                        appManifestEntry = zipArchive.GetEntry("WMAppManifest.xml");
+                        using (Stream appManifestFileStream = appManifestEntry.Open())
+                        {
+                            XPathDocument manifestDocument = new XPathDocument(appManifestFileStream);
+                            XPathNavigator manifestNavigator = manifestDocument.CreateNavigator();
+                            XPathNavigator appNodeNavigator = manifestNavigator.SelectSingleNode("//App");
+                            appInfo.ApplicationId = new Guid?(new Guid(appNodeNavigator.GetAttribute("ProductID", string.Empty)));
+                            string attribute = appNodeNavigator.GetAttribute("RuntimeType", string.Empty);
+                            if (attribute.Equals("Modern Native", StringComparison.OrdinalIgnoreCase))
+                            {
+                                appInfo.IsNative = true;
+                            }
+
+                            manifestNavigator.MoveToFirstChild();
+                            appInfo.ManifestVersion = new Version(manifestNavigator.GetAttribute("AppPlatformVersion", string.Empty));
+                            appInfo.iconPath = manifestNavigator.SelectSingleNode("//App/IconPath").Value;
+                        }
+                    }
+                    else
+                    {
+                        appManifestEntry = zipArchive.GetEntry("AppxManifest.xml");
+                        using (Stream appManifestFileStream = appManifestEntry.Open())
+                        {
+                            // Load the document and set the root element.
+                            XmlDocument manifestDocument = new XmlDocument();
+                            manifestDocument.Load(appManifestFileStream);
+                            XmlNode root = manifestDocument.DocumentElement;
+
+                            // Add the namespace.
+                            XmlNamespaceManager nsmgr = new XmlNamespaceManager(manifestDocument.NameTable);
+                            nsmgr.AddNamespace("a", "http://schemas.microsoft.com/appx/2010/manifest");
+                            nsmgr.AddNamespace("b", "http://schemas.microsoft.com/developer/appx/2012/build");
+
+                            XmlNode node = root.SelectSingleNode(
+                                "descendant::a:Identity", nsmgr);
+
+                            //log = node.Attributes.GetNamedItem("Name").Value;
+
+                            appInfo.ApplicationId = new Guid?(new Guid(node.Attributes.GetNamedItem("Name").Value));
+
+                            node = root.SelectSingleNode("descendant::b:Item[attribute::Name='TargetFrameworkMoniker']", nsmgr);
+
+                            string ver = (node.Attributes.GetNamedItem("Value").Value);
+                            int symbolIndex = ver.LastIndexOf("=");
+                            appInfo.ManifestVersion = new Version(ver.Substring(symbolIndex + 2));
+                            
+                            node = root.SelectSingleNode("descendant::a:Logo", nsmgr);
+                            appInfo.iconPath = node.FirstChild.Value;
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                throw new WindowsPhoneDriverException("Unexpected error reading application information.", ex);
+                throw new WindowsPhoneDriverException(log + "Unexpected error reading application information.", ex);
             }
 
             return appInfo;
@@ -129,7 +173,7 @@ namespace WindowsPhoneDriver
         /// <returns>The full path to the extracted icon file.</returns>
         public string ExtractIconFile()
         {
-            return this.ExtractFileFromApplicationArchive(@"Assets\ApplicationIcon.png");
+            return this.ExtractFileFromApplicationArchive(iconPath);
         }
 
         /// <summary>
@@ -194,7 +238,12 @@ namespace WindowsPhoneDriver
             using (ZipArchive zipArchive = new ZipArchive(appArchiveFileStream, ZipArchiveMode.Read))
             {
                 string tempFileName = Path.GetTempFileName();
-                ZipArchiveEntry iconFileEntry = zipArchive.GetEntry(pathInArchive);
+
+                // appx package requires path modification
+                if (Path.GetExtension(ArchiveFilePath) == ".appx")
+                    iconPath = iconPath.Replace(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                ZipArchiveEntry iconFileEntry = zipArchive.GetEntry(iconPath);
                 using (Stream iconFileStream = iconFileEntry.Open())
                 {
                     if (iconFileStream == null)
